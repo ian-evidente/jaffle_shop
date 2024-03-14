@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: playground
+    schema: playground
+    database: pmg-datawarehouse
+
+    tables:
+      - name: raw_customers
+      - name: raw_orders
+      - name: raw_payments

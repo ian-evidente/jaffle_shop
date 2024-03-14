@@ -1,0 +1,18 @@
+config:
+    send_anonymous_usage_stats: False
+    use_colors: True
+
+jaffle_shop:
+  target: alli-bigquery-dev
+  outputs:
+    alli-bigquery-dev:
+      type: bigquery
+      method: oauth
+      project: pmg-datawarehouse
+      dataset: "dbt_{{ env_var('DBT_USER') }}"
+      threads: 4
+      timeout_seconds: 900
+      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS') }}"
+      location: US
+      priority: interactive
+      retries: 3
