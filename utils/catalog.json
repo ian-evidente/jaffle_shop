@@ -1,0 +1,495 @@
+{
+    "metadata": {
+        "dbt_schema_version": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+        "dbt_version": "1.6.10",
+        "generated_at": "2024-03-14T20:45:12.870120Z",
+        "invocation_id": "6fa1fdc3-7083-40e2-b303-3d967f09ed8d",
+        "env": {}
+    },
+    "nodes": {
+        "model.jaffle_shop.customers": {
+            "metadata": {
+                "type": "table",
+                "schema": "dbt_ian",
+                "name": "customers",
+                "database": "pmg-datawarehouse",
+                "comment": null,
+                "owner": null
+            },
+            "columns": {
+                "customer_id": {
+                    "type": "FLOAT64",
+                    "index": 1,
+                    "name": "customer_id",
+                    "comment": null
+                },
+                "first_name": {
+                    "type": "STRING",
+                    "index": 2,
+                    "name": "first_name",
+                    "comment": null
+                },
+                "last_name": {
+                    "type": "STRING",
+                    "index": 3,
+                    "name": "last_name",
+                    "comment": null
+                },
+                "first_order": {
+                    "type": "TIMESTAMP",
+                    "index": 4,
+                    "name": "first_order",
+                    "comment": null
+                },
+                "most_recent_order": {
+                    "type": "TIMESTAMP",
+                    "index": 5,
+                    "name": "most_recent_order",
+                    "comment": null
+                },
+                "number_of_orders": {
+                    "type": "INT64",
+                    "index": 6,
+                    "name": "number_of_orders",
+                    "comment": null
+                },
+                "customer_lifetime_value": {
+                    "type": "FLOAT64",
+                    "index": 7,
+                    "name": "customer_lifetime_value",
+                    "comment": null
+                }
+            },
+            "stats": {
+                "num_bytes": {
+                    "id": "num_bytes",
+                    "label": "Approximate Size",
+                    "value": 3970,
+                    "include": true,
+                    "description": "Approximate size of table as reported by BigQuery"
+                },
+                "num_rows": {
+                    "id": "num_rows",
+                    "label": "# Rows",
+                    "value": 100,
+                    "include": true,
+                    "description": "Approximate count of rows in this table"
+                },
+                "has_stats": {
+                    "id": "has_stats",
+                    "label": "Has Stats?",
+                    "value": true,
+                    "include": false,
+                    "description": "Indicates whether there are statistics for this table"
+                }
+            },
+            "unique_id": "model.jaffle_shop.customers"
+        },
+        "model.jaffle_shop.orders": {
+            "metadata": {
+                "type": "table",
+                "schema": "dbt_ian",
+                "name": "orders",
+                "database": "pmg-datawarehouse",
+                "comment": null,
+                "owner": null
+            },
+            "columns": {
+                "order_id": {
+                    "type": "FLOAT64",
+                    "index": 1,
+                    "name": "order_id",
+                    "comment": null
+                },
+                "customer_id": {
+                    "type": "FLOAT64",
+                    "index": 2,
+                    "name": "customer_id",
+                    "comment": null
+                },
+                "order_date": {
+                    "type": "TIMESTAMP",
+                    "index": 3,
+                    "name": "order_date",
+                    "comment": null
+                },
+                "status": {
+                    "type": "STRING",
+                    "index": 4,
+                    "name": "status",
+                    "comment": null
+                },
+                "credit_card_amount": {
+                    "type": "FLOAT64",
+                    "index": 5,
+                    "name": "credit_card_amount",
+                    "comment": null
+                },
+                "coupon_amount": {
+                    "type": "FLOAT64",
+                    "index": 6,
+                    "name": "coupon_amount",
+                    "comment": null
+                },
+                "bank_transfer_amount": {
+                    "type": "FLOAT64",
+                    "index": 7,
+                    "name": "bank_transfer_amount",
+                    "comment": null
+                },
+                "gift_card_amount": {
+                    "type": "FLOAT64",
+                    "index": 8,
+                    "name": "gift_card_amount",
+                    "comment": null
+                },
+                "amount": {
+                    "type": "FLOAT64",
+                    "index": 9,
+                    "name": "amount",
+                    "comment": null
+                }
+            },
+            "stats": {
+                "num_bytes": {
+                    "id": "num_bytes",
+                    "label": "Approximate Size",
+                    "value": 7366,
+                    "include": true,
+                    "description": "Approximate size of table as reported by BigQuery"
+                },
+                "num_rows": {
+                    "id": "num_rows",
+                    "label": "# Rows",
+                    "value": 99,
+                    "include": true,
+                    "description": "Approximate count of rows in this table"
+                },
+                "has_stats": {
+                    "id": "has_stats",
+                    "label": "Has Stats?",
+                    "value": true,
+                    "include": false,
+                    "description": "Indicates whether there are statistics for this table"
+                }
+            },
+            "unique_id": "model.jaffle_shop.orders"
+        },
+        "model.jaffle_shop.stg_payments": {
+            "metadata": {
+                "type": "view",
+                "schema": "dbt_ian",
+                "name": "stg_payments",
+                "database": "pmg-datawarehouse",
+                "comment": null,
+                "owner": null
+            },
+            "columns": {
+                "payment_id": {
+                    "type": "FLOAT64",
+                    "index": 1,
+                    "name": "payment_id",
+                    "comment": null
+                },
+                "order_id": {
+                    "type": "FLOAT64",
+                    "index": 2,
+                    "name": "order_id",
+                    "comment": null
+                },
+                "payment_method": {
+                    "type": "STRING",
+                    "index": 3,
+                    "name": "payment_method",
+                    "comment": null
+                },
+                "amount": {
+                    "type": "FLOAT64",
+                    "index": 4,
+                    "name": "amount",
+                    "comment": null
+                }
+            },
+            "stats": {
+                "has_stats": {
+                    "id": "has_stats",
+                    "label": "Has Stats?",
+                    "value": false,
+                    "include": false,
+                    "description": "Indicates whether there are statistics for this table"
+                }
+            },
+            "unique_id": "model.jaffle_shop.stg_payments"
+        },
+        "model.jaffle_shop.stg_orders": {
+            "metadata": {
+                "type": "view",
+                "schema": "dbt_ian",
+                "name": "stg_orders",
+                "database": "pmg-datawarehouse",
+                "comment": null,
+                "owner": null
+            },
+            "columns": {
+                "order_id": {
+                    "type": "FLOAT64",
+                    "index": 1,
+                    "name": "order_id",
+                    "comment": null
+                },
+                "customer_id": {
+                    "type": "FLOAT64",
+                    "index": 2,
+                    "name": "customer_id",
+                    "comment": null
+                },
+                "order_date": {
+                    "type": "TIMESTAMP",
+                    "index": 3,
+                    "name": "order_date",
+                    "comment": null
+                },
+                "status": {
+                    "type": "STRING",
+                    "index": 4,
+                    "name": "status",
+                    "comment": null
+                }
+            },
+            "stats": {
+                "has_stats": {
+                    "id": "has_stats",
+                    "label": "Has Stats?",
+                    "value": false,
+                    "include": false,
+                    "description": "Indicates whether there are statistics for this table"
+                }
+            },
+            "unique_id": "model.jaffle_shop.stg_orders"
+        },
+        "model.jaffle_shop.stg_customers": {
+            "metadata": {
+                "type": "view",
+                "schema": "dbt_ian",
+                "name": "stg_customers",
+                "database": "pmg-datawarehouse",
+                "comment": null,
+                "owner": null
+            },
+            "columns": {
+                "customer_id": {
+                    "type": "FLOAT64",
+                    "index": 1,
+                    "name": "customer_id",
+                    "comment": null
+                },
+                "first_name": {
+                    "type": "STRING",
+                    "index": 2,
+                    "name": "first_name",
+                    "comment": null
+                },
+                "last_name": {
+                    "type": "STRING",
+                    "index": 3,
+                    "name": "last_name",
+                    "comment": null
+                }
+            },
+            "stats": {
+                "has_stats": {
+                    "id": "has_stats",
+                    "label": "Has Stats?",
+                    "value": false,
+                    "include": false,
+                    "description": "Indicates whether there are statistics for this table"
+                }
+            },
+            "unique_id": "model.jaffle_shop.stg_customers"
+        }
+    },
+    "sources": {
+        "source.jaffle_shop.playground.raw_customers": {
+            "metadata": {
+                "type": "table",
+                "schema": "playground",
+                "name": "raw_customers",
+                "database": "pmg-datawarehouse",
+                "comment": null,
+                "owner": null
+            },
+            "columns": {
+                "id": {
+                    "type": "FLOAT64",
+                    "index": 1,
+                    "name": "id",
+                    "comment": "id"
+                },
+                "first_name": {
+                    "type": "STRING",
+                    "index": 2,
+                    "name": "first_name",
+                    "comment": "first_name"
+                },
+                "last_name": {
+                    "type": "STRING",
+                    "index": 3,
+                    "name": "last_name",
+                    "comment": "last_name"
+                }
+            },
+            "stats": {
+                "num_bytes": {
+                    "id": "num_bytes",
+                    "label": "Approximate Size",
+                    "value": 1986,
+                    "include": true,
+                    "description": "Approximate size of table as reported by BigQuery"
+                },
+                "num_rows": {
+                    "id": "num_rows",
+                    "label": "# Rows",
+                    "value": 100,
+                    "include": true,
+                    "description": "Approximate count of rows in this table"
+                },
+                "has_stats": {
+                    "id": "has_stats",
+                    "label": "Has Stats?",
+                    "value": true,
+                    "include": false,
+                    "description": "Indicates whether there are statistics for this table"
+                }
+            },
+            "unique_id": "source.jaffle_shop.playground.raw_customers"
+        },
+        "source.jaffle_shop.playground.raw_payments": {
+            "metadata": {
+                "type": "table",
+                "schema": "playground",
+                "name": "raw_payments",
+                "database": "pmg-datawarehouse",
+                "comment": null,
+                "owner": null
+            },
+            "columns": {
+                "id": {
+                    "type": "FLOAT64",
+                    "index": 1,
+                    "name": "id",
+                    "comment": "id"
+                },
+                "order_id": {
+                    "type": "FLOAT64",
+                    "index": 2,
+                    "name": "order_id",
+                    "comment": "order_id"
+                },
+                "payment_method": {
+                    "type": "STRING",
+                    "index": 3,
+                    "name": "payment_method",
+                    "comment": "payment_method"
+                },
+                "amount": {
+                    "type": "FLOAT64",
+                    "index": 4,
+                    "name": "amount",
+                    "comment": "amount"
+                }
+            },
+            "stats": {
+                "num_bytes": {
+                    "id": "num_bytes",
+                    "label": "Approximate Size",
+                    "value": 4158,
+                    "include": true,
+                    "description": "Approximate size of table as reported by BigQuery"
+                },
+                "num_rows": {
+                    "id": "num_rows",
+                    "label": "# Rows",
+                    "value": 113,
+                    "include": true,
+                    "description": "Approximate count of rows in this table"
+                },
+                "has_stats": {
+                    "id": "has_stats",
+                    "label": "Has Stats?",
+                    "value": true,
+                    "include": false,
+                    "description": "Indicates whether there are statistics for this table"
+                }
+            },
+            "unique_id": "source.jaffle_shop.playground.raw_payments"
+        },
+        "source.jaffle_shop.playground.raw_orders": {
+            "metadata": {
+                "type": "table",
+                "schema": "playground",
+                "name": "raw_orders",
+                "database": "pmg-datawarehouse",
+                "comment": null,
+                "owner": null
+            },
+            "columns": {
+                "id": {
+                    "type": "FLOAT64",
+                    "index": 1,
+                    "name": "id",
+                    "comment": "id"
+                },
+                "user_id": {
+                    "type": "FLOAT64",
+                    "index": 2,
+                    "name": "user_id",
+                    "comment": "user_id"
+                },
+                "order_date": {
+                    "type": "TIMESTAMP",
+                    "index": 3,
+                    "name": "order_date",
+                    "comment": "order_date"
+                },
+                "status": {
+                    "type": "STRING",
+                    "index": 4,
+                    "name": "status",
+                    "comment": "status"
+                }
+            },
+            "stats": {
+                "num_bytes": {
+                    "id": "num_bytes",
+                    "label": "Approximate Size",
+                    "value": 3406,
+                    "include": true,
+                    "description": "Approximate size of table as reported by BigQuery"
+                },
+                "num_rows": {
+                    "id": "num_rows",
+                    "label": "# Rows",
+                    "value": 99,
+                    "include": true,
+                    "description": "Approximate count of rows in this table"
+                },
+                "partitioning_type": {
+                    "id": "partitioning_type",
+                    "label": "Partitioned By",
+                    "value": "order_date",
+                    "include": true,
+                    "description": "The partitioning column for this table"
+                },
+                "has_stats": {
+                    "id": "has_stats",
+                    "label": "Has Stats?",
+                    "value": true,
+                    "include": false,
+                    "description": "Indicates whether there are statistics for this table"
+                }
+            },
+            "unique_id": "source.jaffle_shop.playground.raw_orders"
+        }
+    },
+    "errors": null
+}
