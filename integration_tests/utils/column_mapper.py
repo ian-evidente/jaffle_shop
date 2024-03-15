@@ -1,7 +1,7 @@
 import os
 import json
+import argparse
 import pandas as pd
-
 
 class DbtColumnMapper:
     def __init__(self, artifact_path: str = None):
@@ -51,14 +51,20 @@ class DbtColumnMapper:
 
 
 def main():
-    dbt_mapper = DbtColumnMapper()
-    model_name = "customers"
-    columns_df = dbt_mapper.get_columns(model_name)
-    depends_on_df = dbt_mapper.get_model_depends_on(model_name)
-    print("Columns:")
-    print(columns_df)
-    print("\nDependencies:")
-    print(depends_on_df)
+    parser = argparse.ArgumentParser(description="DBT Column Mapper")
+    parser.add_argument("-s", "--model", type=str, help="Specify the model name")
+    args = parser.parse_args()
+
+    if args.model:
+        dbt_mapper = DbtColumnMapper()
+        columns_df = dbt_mapper.get_columns(args.model)
+        depends_on_df = dbt_mapper.get_model_depends_on(args.model)
+        print("Columns:")
+        print(columns_df)
+        print("\nDependencies:")
+        print(depends_on_df)
+    else:
+        print("Please specify the model name using the -s/--model option.")
 
 
 if __name__ == "__main__":
