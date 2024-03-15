@@ -27,7 +27,31 @@ def get_columns(dataset: str) -> pd.DataFrame:
     return pd.DataFrame(columns_data)
 
 
-# Example usage:
-model_name = "customers"
-df = get_columns(dataset=model_name)
-print(df)
+def get_model_depends_on(model: str) -> pd.DataFrame:
+    dependencies = []
+
+    # Get the path of the current script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Adjust the path to the manifest.json file
+    manifest_path = os.path.join(script_dir, '../target/manifest.json')
+
+    # Read manifest.json file
+    with open(manifest_path, 'r') as f:
+        manifest_data = json.load(f)
+
+    # Iterate over nodes in the manifest
+    for node_name, node_data in manifest_data.get('nodes', {}).items():
+        # Check if the node matches the specified model
+        if node_name.endswith(model):
+            # Get dependencies for the specified model
+            model_dependencies = node_data.get('depends_on', {})
+            # Iterate over the nodes in dependencies
+            for node in model_dependencies.get('nodes', []):
+                # Extract the node type from the node name
+                node_type = node.split('.')[0]
+                dependencies.append({'model_name': model, 'depends_on': node.split('.')[-1], 'node_type': node_type})
+            break  # Stop searching once the model is found
+
+    return pd.DataFrame(dependencies)
+
