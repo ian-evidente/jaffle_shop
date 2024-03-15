@@ -50,14 +50,16 @@ class DbtColumnMapper:
         return pd.DataFrame(dependencies)
 
 
-# Example usage:
-catalog_path = '../target/catalog.json'
-manifest_path = '../target/manifest.json'
-dbt_mapper = DbtColumnMapper()
-model_name = "customers"
-columns_df = dbt_mapper.get_columns(model_name)
-depends_on_df = dbt_mapper.get_model_depends_on(model_name)
-print("Columns:")
-print(columns_df)
-print("\nDependencies:")
-print(depends_on_df)
+def main():
+    dbt_mapper = DbtColumnMapper()
+    model_name = "customers"
+    columns_df = dbt_mapper.get_columns(model_name)
+    depends_on_df = dbt_mapper.get_model_depends_on(model_name)
+    print("Columns:")
+    print(columns_df)
+    print("\nDependencies:")
+    print(depends_on_df)
+
+
+if __name__ == "__main__":
+    main()

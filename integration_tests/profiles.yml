@@ -2,7 +2,7 @@ config:
     send_anonymous_usage_stats: False
     use_colors: True
 
-jaffle_shop:
+jaffle_shop_integration_tests:
   target: alli-bigquery-dev
   outputs:
     alli-bigquery-dev:
