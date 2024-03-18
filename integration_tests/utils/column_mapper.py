@@ -75,16 +75,13 @@ class DbtColumnMapper:
         pattern = r'\b\w+[-]\w+\.\w+\.\w+\b'
         reformatted = re.sub(pattern, lambda x: x.group().split('.')[-1], reformatted)
 
-        deps = self.get_model_dependencies(model=model)['model_name'].tolist()
-        deps_columns = self.get_columns(datasets=deps)
-        model_columns = self.get_columns(datasets=[model])
-
         # Get the final SELECT statement
         final_select_match = re.search(r'final\s+as\s+\((.+?)\)\s+select\s+(.+)\s+from\s+final', reformatted, re.DOTALL)
         if final_select_match:
             final_select = final_select_match.group(2)
 
             # Get the specific columns for the model
+            model_columns = self.get_columns(datasets=[model])
             model_column_names = model_columns['column_name'].tolist()
 
             # Format the final SELECT statement with each column on a new line
@@ -92,7 +89,18 @@ class DbtColumnMapper:
             final_select_replaced += '\n'
             reformatted = reformatted.replace(final_select, final_select_replaced)
 
-
+        # Replace SELECT statements in dependency CTEs
+        deps = self.get_model_dependencies(model=model)['model_name'].tolist()
+        deps_columns = self.get_columns(datasets=deps)
+        for dep in deps:
+            dep_columns = deps_columns[deps_columns['model_name'] == dep]['column_name'].tolist()
+            dep_select_match = re.search(rf'{dep}\s+as\s+\((.+?)\)\s+select\s+(.+)\s+from\s+{dep}', reformatted,
+                                         re.DOTALL)
+            if dep_select_match:
+                dep_select = dep_select_match.group(2)
+                dep_select_replaced = ',\n    '.join(dep_columns)
+                dep_select_replaced += '\n'
+                reformatted = reformatted.replace(dep_select, dep_select_replaced)
 
         return reformatted
 
