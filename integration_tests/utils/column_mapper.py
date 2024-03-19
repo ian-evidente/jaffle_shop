@@ -86,6 +86,16 @@ class DbtColumnMapper:
             # If no SELECT statement is found, return the original SQL query
             return sql_query
 
+    @staticmethod
+    def replace_cte_select_columns(cte_query: str, cte_table: str, columns: list) -> str:
+        # Define the regular expression pattern to match the SELECT statement in the CTE
+        pattern = rf'(\b[a-z_]*\b\s+as\s+\(\s*select\s+)(\*)\s+(from\s+{cte_table}\s*\))'
+
+        # Replace the '*' with the provided list of columns
+        modified_query = re.sub(pattern, rf'\1{", ".join(columns)} \3', cte_query, flags=re.IGNORECASE)
+
+        return modified_query
+
     def reformat_compiled_code(self, model: str) -> str:
         compiled_code = self.get_compiled_code(model=model)
         reformatted = compiled_code.replace('`', '').replace('"', '')
@@ -95,8 +105,10 @@ class DbtColumnMapper:
         model_columns = self.get_columns(datasets=[model])['column_name'].tolist()
         reformatted = self.replace_final_select_columns(sql_query=reformatted, columns=model_columns)
 
-        # deps = self.get_model_dependencies(model=model)['depends_on'].tolist()
-        # deps_columns = self.get_columns(datasets=deps)
+        deps = self.get_model_dependencies(model=model)['depends_on'].tolist()
+        for d in deps:
+            d_columns = self.get_columns(datasets=[d])['column_name'].tolist()
+            reformatted = self.replace_cte_select_columns(cte_query=reformatted, cte_table=d, columns=d_columns)
 
         return reformatted
 
