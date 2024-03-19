@@ -69,38 +69,34 @@ class DbtColumnMapper:
 
         return compiled_code
 
+    @staticmethod
+    def replace_final_select_columns(sql_query: str, columns: list) -> str:
+        # Find the last SELECT statement in the SQL query
+        last_select_match = re.finditer(r'select\s+(?:(?!\bselect\b).)*$', sql_query, re.IGNORECASE | re.MULTILINE)
+        last_select_indices = [match.span() for match in last_select_match]
+        if last_select_indices:
+            last_select_start, last_select_end = last_select_indices[-1]
+            last_select_statement = sql_query[last_select_start:last_select_end]
+            # Replace the * with the provided list of columns
+            modified_last_select = re.sub(r'\*', ', '.join(columns), last_select_statement)
+            # Replace the original last SELECT statement with the modified one in the SQL query
+            modified_sql_query = sql_query[:last_select_start] + modified_last_select + sql_query[last_select_end:]
+            return modified_sql_query
+        else:
+            # If no SELECT statement is found, return the original SQL query
+            return sql_query
+
     def reformat_compiled_code(self, model: str) -> str:
         compiled_code = self.get_compiled_code(model=model)
         reformatted = compiled_code.replace('`', '').replace('"', '')
         pattern = r'\b\w+[-]\w+\.\w+\.\w+\b'
         reformatted = re.sub(pattern, lambda x: x.group().split('.')[-1], reformatted)
 
-        # Get the final SELECT statement
-        final_select_match = re.search(r'final\s+as\s+\((.+?)\)\s+select\s+(.+)\s+from\s+final', reformatted, re.DOTALL)
-        if final_select_match:
-            final_select = final_select_match.group(2)
+        model_columns = self.get_columns(datasets=[model])['column_name'].tolist()
+        reformatted = self.replace_final_select_columns(sql_query=reformatted, columns=model_columns)
 
-            # Get the specific columns for the model
-            model_columns = self.get_columns(datasets=[model])
-            model_column_names = model_columns['column_name'].tolist()
-
-            # Format the final SELECT statement with each column on a new line
-            final_select_replaced = ',\n    '.join(model_column_names)
-            final_select_replaced += '\n'
-            reformatted = reformatted.replace(final_select, final_select_replaced)
-
-        # Replace SELECT statements in dependency CTEs
-        deps = self.get_model_dependencies(model=model)['model_name'].tolist()
-        deps_columns = self.get_columns(datasets=deps)
-        for dep in deps:
-            dep_columns = deps_columns[deps_columns['model_name'] == dep]['column_name'].tolist()
-            dep_select_match = re.search(rf'{dep}\s+as\s+\((.+?)\)\s+select\s+(.+)\s+from\s+{dep}', reformatted,
-                                         re.DOTALL)
-            if dep_select_match:
-                dep_select = dep_select_match.group(2)
-                dep_select_replaced = ',\n    '.join(dep_columns)
-                dep_select_replaced += '\n'
-                reformatted = reformatted.replace(dep_select, dep_select_replaced)
+        # deps = self.get_model_dependencies(model=model)['depends_on'].tolist()
+        # deps_columns = self.get_columns(datasets=deps)
 
         return reformatted
 
@@ -117,7 +113,6 @@ def main():
         dbt_mapper = DbtColumnMapper()
         columns_df = dbt_mapper.get_columns([model])
         depends_on_df = dbt_mapper.get_model_dependencies(model)
-        # compiled_code = dbt_mapper.get_compiled_code(model)
         reformatted_code = dbt_mapper.reformat_compiled_code(model)
         print("Columns:")
         print(columns_df)
