@@ -75,7 +75,8 @@ class DbtColumnMapper:
 
     def reformat_compiled_code(self, model: str) -> str:
         compiled_code = self.get_compiled_code(model=model)
-        reformatted = compiled_code.replace('`', '').replace('"', '')
+        reformatted = ' '.join(compiled_code.split())
+        reformatted = reformatted.replace('`', '').replace('"', '')
         pattern = r'\b\w+[-]\w+\.\w+\.\w+\b'
         reformatted = re.sub(pattern, lambda x: x.group().split('.')[-1], reformatted)
 
@@ -89,24 +90,34 @@ class DbtColumnMapper:
 
         return reformatted
 
+    @staticmethod
+    def get_cte_info(sql_query: str) -> list:
+        cte_definitions = re.findall(r'(?:with |\), )(\w+? as \(.+?\))', sql_query)
+
+        return cte_definitions
+
 
 def main():
     parser = argparse.ArgumentParser(description="dbt Column Mapper")
     parser.add_argument("-s", "--select", type=str, help="Specify the model name")
     args = parser.parse_args()
-    model = args.select
+    model = args.select or 'customers'
 
     if model:
         dbt_mapper = DbtColumnMapper()
         columns_df = dbt_mapper.get_columns([model])
         depends_on_df = dbt_mapper.get_model_dependencies(model)
         reformatted_code = dbt_mapper.reformat_compiled_code(model)
+        cte_info_list = dbt_mapper.get_cte_info(reformatted_code)
         print("Columns:")
         print(columns_df)
         print("\nDependencies:")
         print(depends_on_df)
         print("\nReformatted Compiled Code:")
         print(reformatted_code)
+        print("\nCTE Definitions:")
+        for cte in cte_info_list:
+            print(cte)
     else:
         print("Please specify the model name using the -s/--model option.")
 
