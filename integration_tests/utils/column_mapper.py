@@ -93,10 +93,12 @@ class DbtColumnMapper:
         return reformatted
 
     @staticmethod
-    def get_cte_info(sql_query: str) -> list:
+    def get_cte_raw_info(sql_query: str) -> dict:
+        cte_names = re.findall(r'(?<=ith | \), )(\w+?)(?= +as \()', sql_query)
         cte_definitions = re.findall(r'(?<= as \( )(.+?)(?= \))', sql_query)
+        cte_info = dict(zip(cte_names, cte_definitions))
 
-        return cte_definitions
+        return cte_info
 
 
 def main():
@@ -110,16 +112,16 @@ def main():
         columns_df = dbt_mapper.get_node_columns([model])
         depends_on_df = dbt_mapper.get_model_dependencies(model)
         reformatted_code = dbt_mapper.reformat_compiled_code(model)
-        cte_info_list = dbt_mapper.get_cte_info(reformatted_code)
+        cte_raw = dbt_mapper.get_cte_raw_info(reformatted_code)
         print("Columns:")
         print(columns_df)
         print("\nDependencies:")
         print(depends_on_df)
         print("\nReformatted Compiled Code:")
         print(reformatted_code)
-        print("\nCTE Definitions:")
-        for cte in cte_info_list:
-            print(cte)
+        print("\nCTE Raw Info:")
+        for k, v in cte_raw.items():
+            print(f'{k}: {v}')
     else:
         print("Please specify the model name using the -s/--model option.")
 
