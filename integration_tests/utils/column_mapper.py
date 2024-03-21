@@ -11,7 +11,7 @@ class DbtColumnMapper:
         self.catalog_path = os.path.join(self.artifact_path, 'catalog.json')
         self.manifest_path = os.path.join(self.artifact_path, 'manifest.json')
 
-    def get_columns(self, datasets: list[str]) -> pd.DataFrame:
+    def get_node_columns(self, datasets: list[str]) -> pd.DataFrame:
         columns_data = []
 
         with open(self.catalog_path, 'r') as f:
@@ -37,7 +37,9 @@ class DbtColumnMapper:
                 model_dependencies = node_data.get('depends_on', {})
                 for node in model_dependencies.get('nodes', []):
                     node_type = node.split('.')[0]
-                    dependencies.append({'model_name': model, 'depends_on': node.split('.')[-1], 'node_type': node_type})
+                    dependencies.append(
+                        {'model_name': model, 'depends_on': node.split('.')[-1], 'node_type': node_type}
+                    )
                 break
 
         return pd.DataFrame(dependencies)
@@ -80,19 +82,19 @@ class DbtColumnMapper:
         pattern = r'\b\w+[-]\w+\.\w+\.\w+\b'
         reformatted = re.sub(pattern, lambda x: x.group().split('.')[-1], reformatted)
 
-        model_columns = self.get_columns(datasets=[model])['column_name'].tolist()
+        model_columns = self.get_node_columns(datasets=[model])['column_name'].tolist()
         reformatted = self.replace_final_select_columns(sql_query=reformatted, columns=model_columns)
 
         deps = self.get_model_dependencies(model=model)['depends_on'].tolist()
         for d in deps:
-            d_columns = self.get_columns(datasets=[d])['column_name'].tolist()
+            d_columns = self.get_node_columns(datasets=[d])['column_name'].tolist()
             reformatted = self.replace_cte_select_columns(cte_query=reformatted, cte_table=d, columns=d_columns)
 
         return reformatted
 
     @staticmethod
     def get_cte_info(sql_query: str) -> list:
-        cte_definitions = re.findall(r'(?:with |\), )(\w+? as \(.+?\))', sql_query)
+        cte_definitions = re.findall(r'(?<= as \( )(.+?)(?= \))', sql_query)
 
         return cte_definitions
 
@@ -105,7 +107,7 @@ def main():
 
     if model:
         dbt_mapper = DbtColumnMapper()
-        columns_df = dbt_mapper.get_columns([model])
+        columns_df = dbt_mapper.get_node_columns([model])
         depends_on_df = dbt_mapper.get_model_dependencies(model)
         reformatted_code = dbt_mapper.reformat_compiled_code(model)
         cte_info_list = dbt_mapper.get_cte_info(reformatted_code)
