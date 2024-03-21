@@ -77,14 +77,12 @@ class DbtColumnMapper:
 
     def reformat_compiled_code(self, model: str) -> str:
         compiled_code = self.get_compiled_code(model=model)
-        reformatted = ' '.join(compiled_code.split())
-        reformatted = reformatted.replace('`', '').replace('"', '')
-        pattern = r'\b\w+[-]\w+\.\w+\.\w+\b'
-        reformatted = re.sub(pattern, lambda x: x.group().split('.')[-1], reformatted)
-
+        lowered = compiled_code.lower()
+        flattened = ' '.join(lowered.split())
+        quotes_removed = flattened.replace('`', '').replace('"', '')
+        ref_replaced = re.sub(r'\b\w+-\w+\.\w+\.\w+\b', lambda x: x.group().split('.')[-1], quotes_removed)
         model_columns = self.get_node_columns(datasets=[model])['column_name'].tolist()
-        reformatted = self.replace_final_select_columns(sql_query=reformatted, columns=model_columns)
-
+        reformatted = self.replace_final_select_columns(sql_query=ref_replaced, columns=model_columns)
         deps = self.get_model_dependencies(model=model)['depends_on'].tolist()
         for d in deps:
             d_columns = self.get_node_columns(datasets=[d])['column_name'].tolist()
@@ -100,6 +98,10 @@ class DbtColumnMapper:
 
         return cte_info
 
+    # @staticmethod
+    # def get_cte_info(cte_raw_info: dict) -> pd.DataFrame:
+
+
 
 def main():
     parser = argparse.ArgumentParser(description="dbt Column Mapper")
@@ -113,7 +115,7 @@ def main():
         depends_on_df = dbt_mapper.get_model_dependencies(model)
         reformatted_code = dbt_mapper.reformat_compiled_code(model)
         cte_raw = dbt_mapper.get_cte_raw_info(reformatted_code)
-        print("Columns:")
+        print("Model Columns:")
         print(columns_df)
         print("\nDependencies:")
         print(depends_on_df)
