@@ -58,12 +58,12 @@ class DbtColumnMapper:
 
     @staticmethod
     def replace_final_select_columns(sql_query: str, columns: list) -> str:
-        last_select_match = re.finditer(r'select\s+(?:(?!\bselect\b).)*$', sql_query, re.IGNORECASE | re.MULTILINE)
+        last_select_match = re.finditer(r"select\s+(?:(?!\bselect\b).)*$", sql_query, re.IGNORECASE | re.MULTILINE)
         last_select_indices = [match.span() for match in last_select_match]
         if last_select_indices:
             last_select_start, last_select_end = last_select_indices[-1]
             last_select_statement = sql_query[last_select_start:last_select_end]
-            modified_last_select = re.sub(r'\*', ', '.join(columns), last_select_statement)
+            modified_last_select = re.sub(r"\*", ", ".join(columns), last_select_statement)
             modified_sql_query = sql_query[:last_select_start] + modified_last_select + sql_query[last_select_end:]
             return modified_sql_query
         else:
@@ -71,8 +71,8 @@ class DbtColumnMapper:
 
     @staticmethod
     def replace_cte_select_columns(cte_query: str, cte_table: str, columns: list) -> str:
-        pattern = rf'(\b[a-z_]*\b\s+as\s+\(\s*select\s+)(\*)\s+(from\s+{cte_table}\s*\))'
-        modified_query = re.sub(pattern, rf'\1{", ".join(columns)} \3', cte_query, flags=re.IGNORECASE)
+        pattern = rf"(\b[a-z_]*\b\s+as\s+\(\s*select\s+)(\*)\s+(from\s+{cte_table}\s*\))"
+        modified_query = re.sub(pattern, rf"\1{', '.join(columns)} \3", cte_query, flags=re.IGNORECASE)
         return modified_query
 
     def reformat_compiled_code(self, model: str) -> str:
@@ -80,7 +80,7 @@ class DbtColumnMapper:
         lowered = compiled_code.lower()
         flattened = ' '.join(lowered.split())
         quotes_removed = flattened.replace('`', '').replace('"', '')
-        ref_replaced = re.sub(r'\b\w+-\w+\.\w+\.\w+\b', lambda x: x.group().split('.')[-1], quotes_removed)
+        ref_replaced = re.sub(r"\b\w+-\w+\.\w+\.\w+\b", lambda x: x.group().split(".")[-1], quotes_removed)
         model_columns = self.get_node_columns(datasets=[model])['column_name'].tolist()
         reformatted = self.replace_final_select_columns(sql_query=ref_replaced, columns=model_columns)
         deps = self.get_model_dependencies(model=model)['depends_on'].tolist()
@@ -92,8 +92,8 @@ class DbtColumnMapper:
 
     @staticmethod
     def get_cte_raw_info(sql_query: str) -> dict:
-        cte_names = re.findall(r'(?<=ith | \), )(\w+?)(?= +as \()', sql_query)
-        cte_definitions = re.findall(r'(?<= as \( )(.+?)(?= \))', sql_query)
+        cte_names = re.findall(r"(?<=with |. \), )(.+?)(?= as \()", sql_query)
+        cte_definitions = re.findall(r"(?<= as \( )(.+?)(?= \))", sql_query)
         cte_info = dict(zip(cte_names, cte_definitions))
 
         return cte_info
@@ -102,10 +102,8 @@ class DbtColumnMapper:
     def get_cte_dependencies(raw_info: dict) -> pd.DataFrame:
         dependencies_list = []
         for cte, definition in raw_info.items():
-            deps = re.findall(
-                r'(?<= from | join )(\w+)(?=$| group | where | on | join | inner | left | right | full | outer | cross )',
-                definition
-            )
+            deps = re.findall(r"(?<= from | join )(.+?)(?=$| group | where | on | join | inner | left | right | full "
+                              r"| outer | cross )", definition)
             for dep in deps:
                 dependencies_list.append({'cte_name': cte, 'depends_on': dep})
 
