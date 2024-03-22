@@ -110,15 +110,28 @@ class DbtColumnMapper:
         dependencies_df = pd.DataFrame(dependencies_list)
         return dependencies_df
 
-    @staticmethod
-    def get_cte_columns(raw_info: dict) -> dict:
-        columns_dict = {}
+    def get_cte_columns_info(self, raw_info: dict) -> pd.DataFrame:
+        cte_deps = self.get_cte_dependencies(raw_info=raw_info)
+        columns_list = []
         for cte, definition in raw_info.items():
-            raw_columns = re.findall(r'(?<=select )(.+?)(?= from )', definition)
-            columns = raw_columns[0].split(', ')
-            columns_dict[cte] = columns
+            column_definitions = re.findall(r'(?<=select )(.+?)(?= from )', definition)[0].split(', ')
+            for cd in column_definitions:
+                column_name = re.findall(r'(?:(?<=^)|(?<= )|(?<=\.))\w+(?=$)', cd)[0]
+                column_source = re.findall(r'\w+?(?=\.)', cd)
+                try:
+                    column_source = column_source[0]
+                except IndexError:
+                    column_source = None
 
-        return columns_dict
+                columns_list.append({
+                    'cte_name': cte,
+                    'column_definition': cd,
+                    'column_name': column_name,
+                    'column_source': column_source
+                })
+
+        columns_df = pd.DataFrame(columns_list)
+        return columns_df
 
 
 def main():
@@ -134,11 +147,11 @@ def main():
         reformatted_code = dbt_mapper.reformat_compiled_code(model)
         cte_raw = dbt_mapper.get_cte_definitions(reformatted_code)
         cte_dependencies_df = dbt_mapper.get_cte_dependencies(cte_raw)
-        cte_columns = dbt_mapper.get_cte_columns(cte_raw)
+        cte_columns_df = dbt_mapper.get_cte_columns_info(cte_raw)
 
         print("Model Columns:")
         print(columns_df)
-        print("\nDependencies:")
+        print("\nModel Dependencies:")
         print(depends_on_df)
         print("\nReformatted Compiled Code:")
         print(reformatted_code)
@@ -148,8 +161,7 @@ def main():
         print("\nCTE Dependencies:")
         print(cte_dependencies_df)
         print("\nCTE Columns:")
-        for k, v in cte_columns.items():
-            print(f'{k}: {v}')
+        print(cte_columns_df)
     else:
         print("Please specify the model name using the -s/--model option.")
 
