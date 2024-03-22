@@ -43,7 +43,7 @@ class DbtColumnMapper:
                 for node in model_dependencies.get('nodes', []):
                     node_type = node.split('.')[0]
                     dependencies.append(
-                        {'model_name': model, 'dependency': node.split('.')[-1], 'dependency_type': node_type}
+                        {'model_name': model, 'dependency': node.split('.')[-1], 'type': node_type}
                     )
                 break
 
@@ -110,7 +110,7 @@ class DbtColumnMapper:
             deps = re.findall(r"(?<= from | join )(.+?)(?=$| group | where | on | join | inner | left | right | full "
                               r"| outer | cross )", definition)
             for dep in deps:
-                return_list.append({'cte_name': cte, 'dependency': dep, 'dependency_type': 'cte'})
+                return_list.append({'cte_name': cte, 'dependency': dep, 'type': 'cte'})
 
         cte_list = []
         for r in return_list:
@@ -118,7 +118,7 @@ class DbtColumnMapper:
 
         for r in return_list:
             if r['dependency'] not in cte_list:
-                r['dependency_type'] = 'model'
+                r['type'] = 'model'
 
         dependencies_df = pd.DataFrame(return_list)
         return dependencies_df
