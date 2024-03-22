@@ -91,7 +91,7 @@ class DbtColumnMapper:
         return reformatted
 
     @staticmethod
-    def get_cte_raw_info(sql_query: str) -> dict:
+    def get_cte_definitions(sql_query: str) -> dict:
         cte_names = re.findall(r"(?<=with |. \), )(.+?)(?= as \()", sql_query)
         cte_definitions = re.findall(r"(?<= as \( )(.+?)(?= \))", sql_query)
         cte_info = dict(zip(cte_names, cte_definitions))
@@ -111,16 +111,14 @@ class DbtColumnMapper:
         return dependencies_df
 
     @staticmethod
-    def get_cte_columns(raw_info: dict) -> pd.DataFrame:
-        columns_list = []
+    def get_cte_columns(raw_info: dict) -> dict:
+        columns_dict = {}
         for cte, definition in raw_info.items():
             raw_columns = re.findall(r'(?<=select )(.+?)(?= from )', definition)
             columns = raw_columns[0].split(', ')
-            for column in columns:
-                columns_list.append({'cte_name': cte, 'column_name': column})
+            columns_dict[cte] = columns
 
-        columns_df = pd.DataFrame(columns_list)
-        return columns_df
+        return columns_dict
 
 
 def main():
@@ -134,9 +132,9 @@ def main():
         columns_df = dbt_mapper.get_node_columns([model])
         depends_on_df = dbt_mapper.get_model_dependencies(model)
         reformatted_code = dbt_mapper.reformat_compiled_code(model)
-        cte_raw = dbt_mapper.get_cte_raw_info(reformatted_code)
+        cte_raw = dbt_mapper.get_cte_definitions(reformatted_code)
         cte_dependencies_df = dbt_mapper.get_cte_dependencies(cte_raw)
-        cte_columns_df = dbt_mapper.get_cte_columns(cte_raw)
+        cte_columns = dbt_mapper.get_cte_columns(cte_raw)
 
         print("Model Columns:")
         print(columns_df)
@@ -150,7 +148,8 @@ def main():
         print("\nCTE Dependencies:")
         print(cte_dependencies_df)
         print("\nCTE Columns:")
-        print(cte_columns_df)
+        for k, v in cte_columns.items():
+            print(f'{k}: {v}')
     else:
         print("Please specify the model name using the -s/--model option.")
 
