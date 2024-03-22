@@ -110,6 +110,18 @@ class DbtColumnMapper:
         dependencies_df = pd.DataFrame(dependencies_list)
         return dependencies_df
 
+    @staticmethod
+    def get_cte_columns(raw_info: dict) -> pd.DataFrame:
+        columns_list = []
+        for cte, definition in raw_info.items():
+            raw_columns = re.findall(r'(?<=select )(.+?)(?= from )', definition)
+            columns = raw_columns[0].split(', ')
+            for column in columns:
+                columns_list.append({'cte_name': cte, 'column_name': column})
+
+        columns_df = pd.DataFrame(columns_list)
+        return columns_df
+
 
 def main():
     parser = argparse.ArgumentParser(description="dbt Column Mapper")
@@ -124,6 +136,7 @@ def main():
         reformatted_code = dbt_mapper.reformat_compiled_code(model)
         cte_raw = dbt_mapper.get_cte_raw_info(reformatted_code)
         cte_dependencies_df = dbt_mapper.get_cte_dependencies(cte_raw)
+        cte_columns_df = dbt_mapper.get_cte_columns(cte_raw)
 
         print("Model Columns:")
         print(columns_df)
@@ -136,6 +149,8 @@ def main():
             print(f'{k}: {v}')
         print("\nCTE Dependencies:")
         print(cte_dependencies_df)
+        print("\nCTE Columns:")
+        print(cte_columns_df)
     else:
         print("Please specify the model name using the -s/--model option.")
 
