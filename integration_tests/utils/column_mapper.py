@@ -43,7 +43,7 @@ class DbtColumnMapper:
                 for node in model_dependencies.get('nodes', []):
                     node_type = node.split('.')[0]
                     dependencies.append(
-                        {'model_name': model, 'depends_on': node.split('.')[-1], 'node_type': node_type}
+                        {'model_name': model, 'dependency': node.split('.')[-1], 'dependency_type': node_type}
                     )
                 break
 
@@ -88,7 +88,7 @@ class DbtColumnMapper:
         ref_replaced = re.sub(r"\b\w+-\w+\.\w+\.\w+\b", lambda x: x.group().split(".")[-1], quotes_removed)
         model_columns = self.get_node_columns(node=model)['column_name'].tolist()
         reformatted = self.replace_final_select_columns(sql_query=ref_replaced, columns=model_columns)
-        deps = self.get_model_dependencies(model=model)['depends_on'].tolist()
+        deps = self.get_model_dependencies(model=model)['dependency'].tolist()
         for d in deps:
             d_columns = self.get_node_columns(node=d)['column_name'].tolist()
             reformatted = self.replace_cte_select_columns(cte_query=reformatted, cte_table=d, columns=d_columns)
@@ -105,14 +105,22 @@ class DbtColumnMapper:
 
     def get_cte_dependencies(self, sql_query: str) -> pd.DataFrame:
         cte_info = self.get_cte_definitions(sql_query=sql_query)
-        dependencies_list = []
+        return_list = []
         for cte, definition in cte_info.items():
             deps = re.findall(r"(?<= from | join )(.+?)(?=$| group | where | on | join | inner | left | right | full "
                               r"| outer | cross )", definition)
             for dep in deps:
-                dependencies_list.append({'cte_name': cte, 'depends_on': dep})
+                return_list.append({'cte_name': cte, 'dependency': dep, 'dependency_type': 'cte'})
 
-        dependencies_df = pd.DataFrame(dependencies_list)
+        cte_list = []
+        for r in return_list:
+            cte_list.append(r['cte_name'])
+
+        for r in return_list:
+            if r['dependency'] not in cte_list:
+                r['dependency_type'] = 'model'
+
+        dependencies_df = pd.DataFrame(return_list)
         return dependencies_df
 
     def get_cte_columns_info(self, sql_query: str) -> pd.DataFrame:
@@ -126,7 +134,7 @@ class DbtColumnMapper:
                 try:
                     column_source = column_source[0]
                 except IndexError:
-                    column_source = None
+                    column_source = 'UNKNOWN'
 
                 columns_list.append({
                     'cte_name': cte,
