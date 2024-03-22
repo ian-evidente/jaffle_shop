@@ -129,8 +129,8 @@ class DbtColumnMapper:
                     'column_name': column_name,
                     'column_source': column_source
                 })
-
         columns_df = pd.DataFrame(columns_list)
+
         return columns_df
 
 
@@ -145,9 +145,9 @@ def main():
         columns_df = dbt_mapper.get_node_columns([model])
         depends_on_df = dbt_mapper.get_model_dependencies(model)
         reformatted_code = dbt_mapper.reformat_compiled_code(model)
-        cte_raw = dbt_mapper.get_cte_definitions(reformatted_code)
-        cte_dependencies_df = dbt_mapper.get_cte_dependencies(cte_raw)
-        cte_columns_df = dbt_mapper.get_cte_columns_info(cte_raw)
+        cte_definitions = dbt_mapper.get_cte_definitions(reformatted_code)
+        cte_dependencies_df = dbt_mapper.get_cte_dependencies(cte_definitions)
+        cte_columns_df = dbt_mapper.get_cte_columns_info(cte_definitions)
 
         print("Model Columns:")
         print(columns_df)
@@ -155,8 +155,8 @@ def main():
         print(depends_on_df)
         print("\nReformatted Compiled Code:")
         print(reformatted_code)
-        print("\nCTE Raw Info:")
-        for k, v in cte_raw.items():
+        print("\nCTE Definitions:")
+        for k, v in cte_definitions.items():
             print(f'{k}: {v}')
         print("\nCTE Dependencies:")
         print(cte_dependencies_df)
