@@ -103,10 +103,10 @@ class DbtColumnMapper:
 
         return cte_info
 
-    @staticmethod
-    def get_cte_dependencies(raw_info: dict) -> pd.DataFrame:
+    def get_cte_dependencies(self, sql_query: str) -> pd.DataFrame:
+        cte_info = self.get_cte_definitions(sql_query=sql_query)
         dependencies_list = []
-        for cte, definition in raw_info.items():
+        for cte, definition in cte_info.items():
             deps = re.findall(r"(?<= from | join )(.+?)(?=$| group | where | on | join | inner | left | right | full "
                               r"| outer | cross )", definition)
             for dep in deps:
@@ -115,10 +115,10 @@ class DbtColumnMapper:
         dependencies_df = pd.DataFrame(dependencies_list)
         return dependencies_df
 
-    def get_cte_columns_info(self, raw_info: dict) -> pd.DataFrame:
-        cte_deps = self.get_cte_dependencies(raw_info=raw_info)
+    def get_cte_columns_info(self, sql_query: str) -> pd.DataFrame:
+        cte_info = self.get_cte_definitions(sql_query=sql_query)
         columns_list = []
-        for cte, definition in raw_info.items():
+        for cte, definition in cte_info.items():
             column_definitions = re.findall(r'(?<=select )(.+?)(?= from )', definition)[0].split(', ')
             for cd in column_definitions:
                 column_name = re.findall(r'(?:(?<=^)|(?<= )|(?<=\.))\w+(?=$)', cd)[0]
@@ -151,8 +151,8 @@ def main():
         depends_on_df = dbt_mapper.get_model_dependencies(model)
         reformatted_code = dbt_mapper.reformat_compiled_code(model)
         cte_definitions = dbt_mapper.get_cte_definitions(reformatted_code)
-        cte_dependencies_df = dbt_mapper.get_cte_dependencies(cte_definitions)
-        cte_columns_df = dbt_mapper.get_cte_columns_info(cte_definitions)
+        cte_dependencies_df = dbt_mapper.get_cte_dependencies(reformatted_code)
+        cte_columns_df = dbt_mapper.get_cte_columns_info(reformatted_code)
 
         print("Model Columns:")
         print(columns_df.to_string(index=False, justify='right'))
