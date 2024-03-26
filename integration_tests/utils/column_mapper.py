@@ -170,19 +170,36 @@ def main():
 
     if model:
         dbt_mapper = DbtColumnMapper()
-        columns_df = dbt_mapper.get_node_columns(model)
-        depends_on_df = dbt_mapper.get_model_dependencies(model)
-        cte_dependencies_df = dbt_mapper.get_cte_dependencies(model)
-        cte_columns_df = dbt_mapper.get_cte_columns_info(model)
 
-        print("Model Columns:")
+        compiled_code = dbt_mapper.get_compiled_code(model)
+        print("\nCompiled Model:")
+        print(compiled_code)
+
+        reformatted_code = dbt_mapper.reformat_compiled_code(model)
+        print("\nReformatted Model:")
+        print(reformatted_code)
+
+        columns_df = dbt_mapper.get_node_columns(model)
+        print("\nModel Columns:")
         print(columns_df.to_string(index=False, justify='right'))
+
+        depends_on_df = dbt_mapper.get_model_dependencies(model)
         print("\nModel Dependencies:")
         print(depends_on_df.to_string(index=False, justify='right'))
+
+        cte_dependencies_df = dbt_mapper.get_cte_dependencies(model)
         print("\nCTE Dependencies:")
         print(cte_dependencies_df.to_string(index=False, justify='right'))
+
+        cte_def_dict = dbt_mapper.get_cte_definitions(reformatted_code)
+        print("\nCTE Definitions:")
+        for cte, definition in cte_def_dict.items():
+            print(f"{cte}: {definition}")
+
+        cte_columns_df = dbt_mapper.get_cte_columns_info(model)
         print("\nCTE Columns:")
         print(cte_columns_df.to_string(index=False, justify='right'))
+
     else:
         print("Please specify the model name using the -s/--model option.")
 
