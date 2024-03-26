@@ -1,8 +1,9 @@
 import os
 import json
 import argparse
-import pandas as pd
 import re
+import pandas as pd
+from pandasql import sqldf
 
 
 class DbtColumnMapper:
@@ -103,7 +104,8 @@ class DbtColumnMapper:
 
         return cte_info
 
-    def get_cte_dependencies(self, sql_query: str) -> pd.DataFrame:
+    def get_cte_dependencies(self, model: str) -> pd.DataFrame:
+        sql_query = self.reformat_compiled_code(model=model)
         cte_info = self.get_cte_definitions(sql_query=sql_query)
         return_list = []
         for cte, definition in cte_info.items():
@@ -120,10 +122,23 @@ class DbtColumnMapper:
             if r['dependency'] not in cte_list:
                 r['type'] = 'model'
 
-        dependencies_df = pd.DataFrame(return_list)
-        return dependencies_df
+        model_deps = self.get_model_dependencies(model=model)
+        cte_deps = pd.DataFrame(return_list)
+        query = """
+            SELECT
+                cte_deps.cte_name,
+                cte_deps.dependency,
+                COALESCE(model_deps.type, cte_deps.type) as type
+            FROM cte_deps
+            LEFT JOIN model_deps
+                ON cte_deps.dependency = model_deps.dependency
+                AND model_deps.dependency = 'source'
+        """
+        final_deps = sqldf(query, locals())
+        return final_deps
 
-    def get_cte_columns_info(self, sql_query: str) -> pd.DataFrame:
+    def get_cte_columns_info(self, model: str) -> pd.DataFrame:
+        sql_query = self.reformat_compiled_code(model=model)
         cte_info = self.get_cte_definitions(sql_query=sql_query)
         columns_list = []
         for cte, definition in cte_info.items():
@@ -157,18 +172,13 @@ def main():
         dbt_mapper = DbtColumnMapper()
         columns_df = dbt_mapper.get_node_columns(model)
         depends_on_df = dbt_mapper.get_model_dependencies(model)
-        reformatted_code = dbt_mapper.reformat_compiled_code(model)
-        cte_definitions = dbt_mapper.get_cte_definitions(reformatted_code)
-        cte_dependencies_df = dbt_mapper.get_cte_dependencies(reformatted_code)
-        cte_columns_df = dbt_mapper.get_cte_columns_info(reformatted_code)
+        cte_dependencies_df = dbt_mapper.get_cte_dependencies(model)
+        cte_columns_df = dbt_mapper.get_cte_columns_info(model)
 
         print("Model Columns:")
         print(columns_df.to_string(index=False, justify='right'))
         print("\nModel Dependencies:")
         print(depends_on_df.to_string(index=False, justify='right'))
-        print("\nCTE Definitions:")
-        for k, v in cte_definitions.items():
-            print(f'{k}: {v}')
         print("\nCTE Dependencies:")
         print(cte_dependencies_df.to_string(index=False, justify='right'))
         print("\nCTE Columns:")

@@ -2,3 +2,4 @@ dbt-redshift==1.6.2
 dbt-bigquery==1.6.7
 dbt-snowflake==1.6.4
 pandas==2.2.1
+pandasql==0.7.3
