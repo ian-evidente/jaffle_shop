@@ -1,0 +1,10 @@
+cte,dependency,type
+customers,stg_customers,model
+orders,stg_orders,model
+payments,stg_payments,model
+customer_orders,orders,cte
+customer_payments,payments,cte
+customer_payments,orders,cte
+final,customers,cte
+final,customer_orders,cte
+final,customer_payments,cte

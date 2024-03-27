@@ -21,13 +21,13 @@ class DbtColumnMapper:
         for node_name, node_data in catalog_data.get('nodes', {}).items():
             if node_name.endswith(f'.{node}'):
                 for col_name in node_data.get('columns', {}).keys():
-                    columns_data.append({'node_name': node, 'column_name': col_name})
+                    columns_data.append({'node': node, 'type': 'model', 'column': col_name})
                 break
 
         for node_name, node_data in catalog_data.get('sources', {}).items():
             if node_name.endswith(f'.{node}'):
                 for col_name in node_data.get('columns', {}).keys():
-                    columns_data.append({'node_name': node, 'column_name': col_name})
+                    columns_data.append({'node': node, 'type': 'source', 'column': col_name})
                 break
 
         return pd.DataFrame(columns_data)
@@ -44,7 +44,7 @@ class DbtColumnMapper:
                 for node in model_dependencies.get('nodes', []):
                     node_type = node.split('.')[0]
                     dependencies.append(
-                        {'model_name': model, 'dependency': node.split('.')[-1], 'type': node_type}
+                        {'model': model, 'dependency': node.split('.')[-1], 'type': node_type}
                     )
                 break
 
@@ -87,11 +87,11 @@ class DbtColumnMapper:
         flattened = ' '.join(lowered.split())
         quotes_removed = flattened.replace('`', '').replace('"', '')
         ref_replaced = re.sub(r"\b\w+-\w+\.\w+\.\w+\b", lambda x: x.group().split(".")[-1], quotes_removed)
-        model_columns = self.get_node_columns(node=model)['column_name'].tolist()
+        model_columns = self.get_node_columns(node=model)['column'].tolist()
         reformatted = self.replace_final_select_columns(sql_query=ref_replaced, columns=model_columns)
         deps = self.get_model_dependencies(model=model)['dependency'].tolist()
         for d in deps:
-            d_columns = self.get_node_columns(node=d)['column_name'].tolist()
+            d_columns = self.get_node_columns(node=d)['column'].tolist()
             reformatted = self.replace_cte_select_columns(cte_query=reformatted, cte_table=d, columns=d_columns)
 
         return reformatted
@@ -112,11 +112,11 @@ class DbtColumnMapper:
             deps = re.findall(r"(?<= from | join )(.+?)(?=$| group | where | on | join | inner | left | right | full "
                               r"| outer | cross )", definition)
             for dep in deps:
-                return_list.append({'cte_name': cte, 'dependency': dep, 'type': 'cte'})
+                return_list.append({'cte': cte, 'dependency': dep, 'type': 'cte'})
 
         cte_list = []
         for r in return_list:
-            cte_list.append(r['cte_name'])
+            cte_list.append(r['cte'])
 
         for r in return_list:
             if r['dependency'] not in cte_list:
@@ -126,7 +126,7 @@ class DbtColumnMapper:
         cte_deps = pd.DataFrame(return_list)
         query = """
             SELECT
-                cte_deps.cte_name,
+                cte_deps.cte,
                 cte_deps.dependency,
                 COALESCE(model_deps.type, cte_deps.type) as type
             FROM cte_deps
@@ -152,40 +152,66 @@ class DbtColumnMapper:
                     column_source = 'UNKNOWN'
 
                 columns_list.append({
-                    'cte_name': cte,
-                    'column_definition': cd,
-                    'column_name': column_name,
-                    'column_source': column_source
+                    'model': model,
+                    'cte': cte,
+                    'column': column_name,
+                    'source': column_source
                 })
-        columns_df = pd.DataFrame(columns_list)
 
-        return columns_df
+        cte_columns = pd.DataFrame(columns_list)
+        cte_deps = self.get_cte_dependencies(model=model)
+
+        query = """
+            SELECT cte, COUNT(distinct dependency) as deps
+            FROM cte_deps
+            GROUP BY cte
+            HAVING COUNT(distinct dependency) = 1
+        """
+        single_dep = sqldf(query, locals())
+
+        query = """
+            SELECT cte_deps.*
+            FROM cte_deps
+            JOIN single_dep
+                ON cte_deps.cte = single_dep.cte
+        """
+        cte_deps2 = sqldf(query, locals())
+
+        query = """
+            SELECT 
+                cte_columns.model,
+                cte_columns.cte,
+                cte_columns.column,
+                COALESCE(cte_deps2.dependency, cte_columns.source) as source
+            FROM cte_columns
+            LEFT JOIN cte_deps2
+                ON cte_columns.cte = cte_deps2.cte
+        """
+        cte_columns2 = sqldf(query, locals())
+
+        return cte_columns2
 
 
 def main():
     parser = argparse.ArgumentParser(description="dbt Column Mapper")
     parser.add_argument("-s", "--select", type=str, help="Specify the model name")
     args = parser.parse_args()
-    model = args.select or 'orders'
+    model = args.select or 'customers'
 
     if model:
         dbt_mapper = DbtColumnMapper()
-
-        compiled_code = dbt_mapper.get_compiled_code(model)
-        print("\nCompiled Model:")
-        print(compiled_code)
 
         reformatted_code = dbt_mapper.reformat_compiled_code(model)
         print("\nReformatted Model:")
         print(reformatted_code)
 
-        columns_df = dbt_mapper.get_node_columns(model)
+        node_columns_df = dbt_mapper.get_node_columns(model)
         print("\nModel Columns:")
-        print(columns_df.to_string(index=False, justify='right'))
+        print(node_columns_df.to_string(index=False, justify='right'))
 
-        depends_on_df = dbt_mapper.get_model_dependencies(model)
+        model_dependencies_df = dbt_mapper.get_model_dependencies(model)
         print("\nModel Dependencies:")
-        print(depends_on_df.to_string(index=False, justify='right'))
+        print(model_dependencies_df.to_string(index=False, justify='right'))
 
         cte_dependencies_df = dbt_mapper.get_cte_dependencies(model)
         print("\nCTE Dependencies:")
@@ -196,9 +222,14 @@ def main():
         for cte, definition in cte_def_dict.items():
             print(f"{cte}: {definition}")
 
-        cte_columns_df = dbt_mapper.get_cte_columns_info(model)
+        cte_columns_info_df = dbt_mapper.get_cte_columns_info(model)
         print("\nCTE Columns:")
-        print(cte_columns_df.to_string(index=False, justify='right'))
+        print(cte_columns_info_df.to_string(index=False, justify='right'))
+
+        node_columns_df.to_csv('node_columns.csv', index=False)
+        model_dependencies_df.to_csv('model_dependencies.csv', index=False)
+        cte_dependencies_df.to_csv('cte_dependencies.csv', index=False)
+        cte_columns_info_df.to_csv('cte_columns_info.csv', index=False)
 
     else:
         print("Please specify the model name using the -s/--model option.")
