@@ -1,4 +1,0 @@
-model,dependency,type
-customers,stg_customers,model
-customers,stg_orders,model
-customers,stg_payments,model

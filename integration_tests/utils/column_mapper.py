@@ -98,8 +98,8 @@ class DbtColumnMapper:
 
     @staticmethod
     def get_cte_definitions(sql_query: str) -> dict:
-        cte_names = re.findall(r"(?:(?<=with )|(?<=\), ))(.+?)(?= as \()", sql_query)
-        cte_definitions = re.findall(r"(?<= as \( )(.+?)(?= \))", sql_query)
+        cte_names = re.findall(r"(?:(?<=with )|(?<=\), ))(.+?)(?= as \()", sql_query, re.IGNORECASE)
+        cte_definitions = re.findall(r"(?<= as \( )(.+?)(?= \))", sql_query, re.IGNORECASE)
         cte_info = dict(zip(cte_names, cte_definitions))
 
         return cte_info
@@ -110,7 +110,7 @@ class DbtColumnMapper:
         return_list = []
         for cte, definition in cte_info.items():
             deps = re.findall(r"(?<= from | join )(.+?)(?=$| group | where | on | join | inner | left | right | full "
-                              r"| outer | cross )", definition)
+                              r"| outer | cross )", definition, re.IGNORECASE)
             for dep in deps:
                 return_list.append({'cte': cte, 'dependency': dep, 'type': 'cte'})
 
@@ -142,61 +142,142 @@ class DbtColumnMapper:
         cte_info = self.get_cte_definitions(sql_query=sql_query)
         columns_list = []
         for cte, definition in cte_info.items():
-            column_definitions = re.findall(r'(?<=select )(.+?)(?= from )', definition)[0].split(', ')
-            for cd in column_definitions:
-                column_name = re.findall(r'(?:(?<=^)|(?<= )|(?<=\.))\w+(?=$)', cd)[0]
-                column_source = re.findall(r'\w+?(?=\.)', cd)
+            column_sql = re.findall(r'(?<=select )(.+?)(?= from )', definition, re.IGNORECASE)[0].split(', ')
+            for cs in column_sql:
+                # Capture final column name
+                column = re.findall(r'(?:(?<=^)|(?<= )|(?<=\.))\w+(?=$)', cs, re.IGNORECASE)[0]
+
+                # Capture source CTE of column
+                source = re.findall(r'\w+?(?=\.)', cs, re.IGNORECASE)
                 try:
-                    column_source = column_source[0]
+                    source = source[0]
                 except IndexError:
-                    column_source = 'UNKNOWN'
+                    source = 'UNKNOWN'
+
+                # Capture original column name from source CTE
+                # v1: No CASE statements
+                source_column = re.findall(
+                    r'(?:(?<=^)|(?<=\.)|(?<=\()|(?<=, ))(?<! when )(?<! then )(\'?\w+\'?[^0()])(?:(?=\))|(?=$)|(?= as )|(?=, ))(?! end)',
+                    cs, re.IGNORECASE
+                )
+                try:
+                    source_column = source_column[0]
+                except IndexError:
+                    # v2: With CASE statements
+                    source_column = re.findall(
+                        r'(?:(?<= when )|(?<= then )|(?<= else ))(\'?\w+\'?[^0][^()])(?:(?= when )|(?= else )|(?= end ))',
+                        cs, re.IGNORECASE
+                    )
+                    try:
+                        source_column = source_column[0]
+                    except IndexError:
+                        source_column = 'UNKNOWN'
 
                 columns_list.append({
                     'model': model,
                     'cte': cte,
-                    'column': column_name,
-                    'source': column_source
+                    'column': column,
+                    'column_sql': cs,
+                    'source': source,
+                    'source_column': source_column
                 })
 
         cte_columns = pd.DataFrame(columns_list)
         cte_deps = self.get_cte_dependencies(model=model)
-
-        query = """
-            SELECT cte, COUNT(distinct dependency) as deps
-            FROM cte_deps
-            GROUP BY cte
-            HAVING COUNT(distinct dependency) = 1
-        """
-        single_dep = sqldf(query, locals())
-
-        query = """
+        cte_deps_2 = sqldf(
+            """
             SELECT cte_deps.*
             FROM cte_deps
-            JOIN single_dep
+            JOIN (
+                SELECT cte, COUNT(distinct dependency) as deps
+                FROM cte_deps
+                GROUP BY cte
+                HAVING COUNT(distinct dependency) = 1
+            ) single_dep
                 ON cte_deps.cte = single_dep.cte
-        """
-        cte_deps2 = sqldf(query, locals())
-
-        query = """
+            """,
+            locals()
+        )
+        cte_columns_2 = sqldf(
+            """
             SELECT 
                 cte_columns.model,
                 cte_columns.cte,
                 cte_columns.column,
-                COALESCE(cte_deps2.dependency, cte_columns.source) as source
+                cte_columns.column_sql,
+                COALESCE(cte_deps_2.dependency, cte_columns.source) as source,
+                cte_columns.source_column
             FROM cte_columns
-            LEFT JOIN cte_deps2
-                ON cte_columns.cte = cte_deps2.cte
-        """
-        cte_columns2 = sqldf(query, locals())
+            LEFT JOIN cte_deps_2
+                ON cte_columns.cte = cte_deps_2.cte
+            """,
+            locals()
+        )
 
-        return cte_columns2
+        # Map remaining UNKNOWN records using columns existing in CTE's dependencies
+        unknown_source = sqldf(
+            """
+            SELECT *
+            FROM cte_columns_2
+            WHERE source = 'UNKNOWN' 
+            """,
+            locals()
+        )
+
+        if not unknown_source.empty:
+            unknown_cte_list = []
+            for index, row in unknown_source.iterrows():
+                unknown_cte_list.append(row['cte'])
+
+            for cte in unknown_cte_list:
+                unknown_cte_deps = sqldf(
+                    f"""
+                    SELECT *
+                    FROM cte_deps
+                    WHERE cte = '{cte}'
+                    """,
+                    locals()
+                )
+                unknown_cte_deps_list = []
+                for index, row in unknown_cte_deps.iterrows():
+                    unknown_cte_deps_list.append(row['dependency'])
+                    unknown_cte_deps_string = ', '.join("'" + item + "'" for item in unknown_cte_deps_list)
+                    unknown_cte_deps_columns = sqldf(
+                        f"""
+                        SELECT DISTINCT cte, column
+                        FROM cte_columns_2
+                        WHERE cte IN ({unknown_cte_deps_string})
+                        """,
+                        locals()
+                    )
+
+            cte_columns_final = sqldf(
+                """
+                    SELECT
+                        cte_columns_2.model,
+                        cte_columns_2.cte,
+                        cte_columns_2.column,
+                        cte_columns_2.column_sql,
+                        COALESCE(unknown_cte_deps_columns.cte, cte_columns_2.source) as source,
+                        cte_columns_2.source_column
+                    FROM cte_columns_2
+                    LEFT JOIN unknown_cte_deps_columns
+                        ON cte_columns_2.source_column = unknown_cte_deps_columns.column
+                        AND cte_columns_2.source = 'UNKNOWN'
+                """,
+                locals()
+            )
+        else:
+            cte_columns_final = cte_columns_2
+
+        return cte_columns_final
 
 
 def main():
     parser = argparse.ArgumentParser(description="dbt Column Mapper")
     parser.add_argument("-s", "--select", type=str, help="Specify the model name")
     args = parser.parse_args()
-    model = args.select or 'customers'
+    model = args.select or 'orders'
 
     if model:
         dbt_mapper = DbtColumnMapper()
@@ -226,10 +307,13 @@ def main():
         print("\nCTE Columns:")
         print(cte_columns_info_df.to_string(index=False, justify='right'))
 
-        node_columns_df.to_csv('node_columns.csv', index=False)
-        model_dependencies_df.to_csv('model_dependencies.csv', index=False)
-        cte_dependencies_df.to_csv('cte_dependencies.csv', index=False)
-        cte_columns_info_df.to_csv('cte_columns_info.csv', index=False)
+        output_dir = os.path.abspath(os.path.join(os.getcwd(), '..', 'target', 'bin'))
+        os.makedirs(output_dir, exist_ok=True)
+        node_columns_df.to_csv(os.path.join(output_dir, 'node_columns.csv'), index=False)
+        model_dependencies_df.to_csv(os.path.join(output_dir, 'model_dependencies.csv'), index=False)
+        cte_dependencies_df.to_csv(os.path.join(output_dir, 'cte_dependencies.csv'), index=False)
+        cte_columns_info_df.to_csv(os.path.join(output_dir, 'cte_columns_info.csv'), index=False)
+
 
     else:
         print("Please specify the model name using the -s/--model option.")

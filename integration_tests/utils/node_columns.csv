@@ -1,8 +1,0 @@
-node,type,column
-customers,model,customer_id
-customers,model,first_name
-customers,model,last_name
-customers,model,first_order
-customers,model,most_recent_order
-customers,model,number_of_orders
-customers,model,customer_lifetime_value
