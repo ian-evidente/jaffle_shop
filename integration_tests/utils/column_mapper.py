@@ -83,10 +83,11 @@ class DbtColumnMapper:
 
     def reformat_compiled_code(self, model: str) -> str:
         compiled_code = self.get_compiled_code(model=model)
-        lowered = compiled_code.lower()
+        no_comments = re.sub(r'--.*|/\*.*?\*/', '', compiled_code, flags=re.DOTALL)
+        no_quotes = no_comments.replace('`', '').replace('"', '')
+        lowered = no_quotes.lower()
         flattened = ' '.join(lowered.split())
-        quotes_removed = flattened.replace('`', '').replace('"', '')
-        ref_replaced = re.sub(r"\b\w+-\w+\.\w+\.\w+\b", lambda x: x.group().split(".")[-1], quotes_removed)
+        ref_replaced = re.sub(r"\b\w+-\w+\.\w+\.\w+\b", lambda x: x.group().split(".")[-1], flattened)
         model_columns = self.get_node_columns(node=model)['column'].tolist()
         reformatted = self.replace_final_select_columns(sql_query=ref_replaced, columns=model_columns)
         deps = self.get_model_dependencies(model=model)['dependency'].tolist()
