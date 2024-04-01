@@ -313,8 +313,6 @@ def main():
         model_dependencies_df.to_csv(os.path.join(output_dir, 'model_dependencies.csv'), index=False)
         cte_dependencies_df.to_csv(os.path.join(output_dir, 'cte_dependencies.csv'), index=False)
         cte_columns_info_df.to_csv(os.path.join(output_dir, 'cte_columns_info.csv'), index=False)
-
-
     else:
         print("Please specify the model name using the -s/--model option.")
 
