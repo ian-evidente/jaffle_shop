@@ -8,7 +8,7 @@ from pandasql import sqldf
 
 class DbtColumnMapper:
     def __init__(self, artifact_path: str = None):
-        self.artifact_path = artifact_path or '../target'
+        self.artifact_path = artifact_path or '../../target'
         self.catalog_path = os.path.join(self.artifact_path, 'catalog.json')
         self.manifest_path = os.path.join(self.artifact_path, 'manifest.json')
 
@@ -64,12 +64,12 @@ class DbtColumnMapper:
 
     @staticmethod
     def replace_final_select_columns(sql_query: str, columns: list) -> str:
-        last_select_match = re.finditer(r"select\s+(?:(?!\bselect\b).)*$", sql_query, re.IGNORECASE | re.MULTILINE)
+        last_select_match = re.finditer(r'select\s+(?:(?!\bselect\b).)*$', sql_query, re.IGNORECASE | re.MULTILINE)
         last_select_indices = [match.span() for match in last_select_match]
         if last_select_indices:
             last_select_start, last_select_end = last_select_indices[-1]
             last_select_statement = sql_query[last_select_start:last_select_end]
-            modified_last_select = re.sub(r"\*", ", ".join(columns), last_select_statement)
+            modified_last_select = re.sub(r'\*', ', '.join(columns), last_select_statement)
             modified_sql_query = sql_query[:last_select_start] + modified_last_select + sql_query[last_select_end:]
             return modified_sql_query
         else:
@@ -77,7 +77,7 @@ class DbtColumnMapper:
 
     @staticmethod
     def replace_cte_select_columns(cte_query: str, cte_table: str, columns: list) -> str:
-        pattern = rf"(\b[a-z_]*\b\s+as\s+\(\s*select\s+)(\*)\s+(from\s+{cte_table}\s*\))"
+        pattern = rf'(\b[a-z_]*\b\s+as\s+\(\s*select\s+)(\*)\s+(from\s+{cte_table}\s*\))'
         modified_query = re.sub(pattern, rf"\1{', '.join(columns)} \3", cte_query, flags=re.IGNORECASE)
         return modified_query
 
@@ -87,7 +87,7 @@ class DbtColumnMapper:
         no_quotes = no_comments.replace('`', '').replace('"', '')
         lowered = no_quotes.lower()
         flattened = ' '.join(lowered.split())
-        ref_replaced = re.sub(r"\b\w+-\w+\.\w+\.\w+\b", lambda x: x.group().split(".")[-1], flattened)
+        ref_replaced = re.sub(r'\b\w+-\w+\.\w+\.\w+\b', lambda x: x.group().split('.')[-1], flattened)
         model_columns = self.get_node_columns(node=model)['column'].tolist()
         reformatted = self.replace_final_select_columns(sql_query=ref_replaced, columns=model_columns)
         deps = self.get_model_dependencies(model=model)['dependency'].tolist()
@@ -99,8 +99,8 @@ class DbtColumnMapper:
 
     @staticmethod
     def get_cte_definitions(sql_query: str) -> dict:
-        cte_names = re.findall(r"(?:(?<=with )|(?<=\), ))(.+?)(?= as \()", sql_query, re.IGNORECASE)
-        cte_definitions = re.findall(r"(?<= as \( )(.+?)(?= \))", sql_query, re.IGNORECASE)
+        cte_names = re.findall(r'(?:(?<=with )|(?<=\), ))(.+?)(?= as \()', sql_query, re.IGNORECASE)
+        cte_definitions = re.findall(r'(?<= as \( )(.+?)(?= \))', sql_query, re.IGNORECASE)
         cte_info = dict(zip(cte_names, cte_definitions))
 
         return cte_info
@@ -110,8 +110,10 @@ class DbtColumnMapper:
         cte_info = self.get_cte_definitions(sql_query=sql_query)
         return_list = []
         for cte, definition in cte_info.items():
-            deps = re.findall(r"(?<= from | join )(.+?)(?=$| group | where | on | join | inner | left | right | full "
-                              r"| outer | cross )", definition, re.IGNORECASE)
+            deps = re.findall(
+                r'(?<= from | join )(.+?)(?=$| group | where | on | join | inner | left | right | full | outer | cross )',
+                definition, re.IGNORECASE
+            )
             for dep in deps:
                 return_list.append({'cte': cte, 'dependency': dep, 'type': 'cte'})
 
@@ -138,7 +140,7 @@ class DbtColumnMapper:
         final_deps = sqldf(query, locals())
         return final_deps
 
-    def get_cte_columns_info(self, model: str) -> pd.DataFrame:
+    def get_cte_columns_source_info(self, model: str) -> pd.DataFrame:
         sql_query = self.reformat_compiled_code(model=model)
         cte_info = self.get_cte_definitions(sql_query=sql_query)
         columns_list = []
@@ -304,23 +306,24 @@ def main():
         for cte, definition in cte_def_dict.items():
             print(f"{cte}: {definition}")
 
-        cte_columns_info_df = dbt_mapper.get_cte_columns_info(model)
-        print("\nCTE Columns:")
+        cte_columns_info_df = dbt_mapper.get_cte_columns_source_info(model)
+        print("\nCTE Columns Source Info:")
         print(cte_columns_info_df.to_string(index=False, justify='right'))
 
-        output_dir = os.path.abspath(os.path.join(os.getcwd(), '..', 'target', 'bin'))
+        output_dir = os.path.abspath(os.path.join(os.getcwd(), 'output'))
         os.makedirs(output_dir, exist_ok=True)
         node_columns_df.to_csv(os.path.join(output_dir, 'node_columns.csv'), index=False)
         model_dependencies_df.to_csv(os.path.join(output_dir, 'model_dependencies.csv'), index=False)
         cte_dependencies_df.to_csv(os.path.join(output_dir, 'cte_dependencies.csv'), index=False)
-        cte_columns_info_df.to_csv(os.path.join(output_dir, 'cte_columns_info.csv'), index=False)
+        cte_columns_info_df.to_csv(os.path.join(output_dir, 'cte_columns_source_info.csv'), index=False)
 
-        # Get all of model's dependencies upstream until the ultimate source(s) is reached
-        # Get each dependency's columns
+        # 1.) Get column names of selected model
+        # 2.) Get all dependencies of selected model until the ultimate source(s) reached
+        # 3.) Get column names of each dependency
 
 
     else:
-        print("Please specify the model name using the -s/--model option.")
+        print("Please specify the model name using the -s or --select option.")
 
 
 if __name__ == "__main__":

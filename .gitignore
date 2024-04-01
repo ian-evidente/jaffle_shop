@@ -2,4 +2,5 @@
 target/
 dbt_packages/
 logs/
+output/
 **/.DS_Store
