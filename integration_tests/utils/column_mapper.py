@@ -178,9 +178,9 @@ class DbtColumnMapper:
                     'model': model,
                     'cte': cte,
                     'column': column,
-                    'column_sql': cs,
                     'source': source,
-                    'source_column': source_column
+                    'source_column': source_column,
+                    'column_sql': cs
                 })
 
         cte_columns = pd.DataFrame(columns_list)
@@ -205,9 +205,9 @@ class DbtColumnMapper:
                 cte_columns.model,
                 cte_columns.cte,
                 cte_columns.column,
-                cte_columns.column_sql,
                 COALESCE(cte_deps_2.dependency, cte_columns.source) as source,
-                cte_columns.source_column
+                cte_columns.source_column,
+                cte_columns.column_sql
             FROM cte_columns
             LEFT JOIN cte_deps_2
                 ON cte_columns.cte = cte_deps_2.cte
@@ -258,9 +258,9 @@ class DbtColumnMapper:
                         cte_columns_2.model,
                         cte_columns_2.cte,
                         cte_columns_2.column,
-                        cte_columns_2.column_sql,
                         COALESCE(unknown_cte_deps_columns.cte, cte_columns_2.source) as source,
-                        cte_columns_2.source_column
+                        cte_columns_2.source_column,
+                        cte_columns_2.column_sql
                     FROM cte_columns_2
                     LEFT JOIN unknown_cte_deps_columns
                         ON cte_columns_2.source_column = unknown_cte_deps_columns.column
@@ -278,7 +278,7 @@ def main():
     parser = argparse.ArgumentParser(description="dbt Column Mapper")
     parser.add_argument("-s", "--select", type=str, help="Specify the model name")
     args = parser.parse_args()
-    model = args.select or 'orders'
+    model = args.select or 'customers'
 
     if model:
         dbt_mapper = DbtColumnMapper()
@@ -314,6 +314,11 @@ def main():
         model_dependencies_df.to_csv(os.path.join(output_dir, 'model_dependencies.csv'), index=False)
         cte_dependencies_df.to_csv(os.path.join(output_dir, 'cte_dependencies.csv'), index=False)
         cte_columns_info_df.to_csv(os.path.join(output_dir, 'cte_columns_info.csv'), index=False)
+
+        # Get all of model's dependencies upstream until the ultimate source(s) is reached
+        # Get each dependency's columns
+
+
     else:
         print("Please specify the model name using the -s/--model option.")
 
