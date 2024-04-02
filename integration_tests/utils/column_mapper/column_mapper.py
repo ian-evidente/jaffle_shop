@@ -158,7 +158,7 @@ class DbtColumnMapper:
                     source = 'UNKNOWN'
 
                 # Capture original column name from source CTE
-                # v1: No CASE statements
+                # RegEx #1: No CASE statements
                 source_column = re.findall(
                     r'(?:(?<=^)|(?<=\.)|(?<=\()|(?<=, ))(?<! when )(?<! then )(\'?\w+\'?[^0()])(?:(?=\))|(?=$)|(?= as )|(?=, ))(?! end)',
                     cs, re.IGNORECASE
@@ -166,7 +166,7 @@ class DbtColumnMapper:
                 try:
                     source_column = source_column[0]
                 except IndexError:
-                    # v2: With CASE statements
+                    # RegEx #2: With CASE statements only
                     source_column = re.findall(
                         r'(?:(?<= when )|(?<= then )|(?<= else ))(\'?\w+\'?[^0][^()])(?:(?= when )|(?= else )|(?= end ))',
                         cs, re.IGNORECASE
@@ -256,22 +256,24 @@ class DbtColumnMapper:
 
             cte_columns_final = sqldf(
                 """
-                    SELECT
-                        cte_columns_2.model,
-                        cte_columns_2.cte,
-                        cte_columns_2.column,
-                        COALESCE(unknown_cte_deps_columns.cte, cte_columns_2.source) as source,
-                        cte_columns_2.source_column,
-                        cte_columns_2.column_sql
-                    FROM cte_columns_2
-                    LEFT JOIN unknown_cte_deps_columns
-                        ON cte_columns_2.source_column = unknown_cte_deps_columns.column
-                        AND cte_columns_2.source = 'UNKNOWN'
+                SELECT
+                    cte_columns_2.model,
+                    cte_columns_2.cte,
+                    cte_columns_2.column,
+                    COALESCE(unknown_cte_deps_columns.cte, cte_columns_2.source) as source,
+                    cte_columns_2.source_column,
+                    cte_columns_2.column_sql
+                FROM cte_columns_2
+                LEFT JOIN unknown_cte_deps_columns
+                    ON cte_columns_2.source_column = unknown_cte_deps_columns.column
+                    AND cte_columns_2.source = 'UNKNOWN'
                 """,
                 locals()
             )
         else:
             cte_columns_final = cte_columns_2
+
+        # TODO: Include model's "final" SELECT statement to cte_columns_final
 
         return cte_columns_final
 
