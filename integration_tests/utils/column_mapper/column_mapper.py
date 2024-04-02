@@ -167,7 +167,7 @@ class DbtColumnMapper:
                 try:
                     source = source[0]
                 except IndexError:
-                    source = 'UNKNOWN'
+                    source = '(unknown)'
 
                 # Capture original column name from source CTE
                 # RegEx #1: No CASE statements
@@ -186,7 +186,7 @@ class DbtColumnMapper:
                     try:
                         source_column = source_column[0]
                     except IndexError:
-                        source_column = 'UNKNOWN'
+                        source_column = '(unknown)'
 
                 columns_list.append({
                     'model': model,
@@ -229,12 +229,12 @@ class DbtColumnMapper:
             locals()
         )
 
-        # Map remaining UNKNOWN records using columns existing in CTE's dependencies
+        # Map remaining (unknown) records using columns existing in CTE's dependencies
         unknown_source = sqldf(
             """
             SELECT *
             FROM cte_columns_2
-            WHERE source = 'UNKNOWN' 
+            WHERE source = '(unknown)' 
             """,
             locals()
         )
@@ -278,7 +278,7 @@ class DbtColumnMapper:
                 FROM cte_columns_2
                 LEFT JOIN unknown_cte_deps_columns
                     ON cte_columns_2.source_column = unknown_cte_deps_columns.column
-                    AND cte_columns_2.source = 'UNKNOWN'
+                    AND cte_columns_2.source = '(unknown)'
                 """,
                 locals()
             )
@@ -292,7 +292,7 @@ def main():
     parser = argparse.ArgumentParser(description="dbt Column Mapper")
     parser.add_argument("-s", "--select", type=str, help="Specify the model name")
     args = parser.parse_args()
-    model = args.select or 'customers'
+    model = args.select or 'stg_payments'
 
     if model:
         dbt_mapper = DbtColumnMapper()
