@@ -81,9 +81,9 @@ class DbtColumnMapper:
         modified_query = re.sub(pattern, rf"\1{', '.join(columns)} \3", cte_query, flags=re.IGNORECASE)
         return modified_query
 
-    def reformat_compiled_code(self, model: str) -> str:
+    def reformat_compiled_model(self, model: str) -> str:
         compiled_code = self.get_compiled_code(model=model)
-        no_comments = re.sub(r'--.*|/\*.*?\*/', '', compiled_code, flags=re.DOTALL)
+        no_comments = re.sub(r'--.*|/\*.*?\*/', '', compiled_code)
         no_quotes = no_comments.replace('`', '').replace('"', '')
         lowered = no_quotes.lower()
         flattened = ' '.join(lowered.split())
@@ -97,17 +97,28 @@ class DbtColumnMapper:
 
         return reformatted
 
-    @staticmethod
-    def get_cte_definitions(sql_query: str) -> dict:
-        cte_names = re.findall(r'(?:(?<=with )|(?<=\), ))(.+?)(?= as \()', sql_query, re.IGNORECASE)
-        cte_definitions = re.findall(r'(?<= as \( )(.+?)(?= \))', sql_query, re.IGNORECASE)
+    def get_cte_definitions_from_compiled_model(self, compiled_code: str) -> dict:
+        cte_names = re.findall(r'(?:(?<=with )|(?<=\), ))(.+?)(?= as \()', compiled_code, re.IGNORECASE)
+        cte_definitions = re.findall(r'(?<= as \( )(.+?)(?= \))', compiled_code, re.IGNORECASE)
         cte_info = dict(zip(cte_names, cte_definitions))
+        final_select = self.get_final_select_from_compiled_model(compiled_code=compiled_code)
+        cte_info['(this model)'] = final_select
 
         return cte_info
 
+    @staticmethod
+    def get_final_select_from_compiled_model(compiled_code: str) -> str:
+        final_select = re.findall(r'(?<! as )(?<!\( )(select.+from.+)(?=$)', compiled_code, re.IGNORECASE)
+        try:
+            final_select = final_select[0]
+        except IndexError:
+            final_select = None
+
+        return final_select
+
     def get_cte_dependencies(self, model: str) -> pd.DataFrame:
-        sql_query = self.reformat_compiled_code(model=model)
-        cte_info = self.get_cte_definitions(sql_query=sql_query)
+        compiled_code = self.reformat_compiled_model(model=model)
+        cte_info = self.get_cte_definitions_from_compiled_model(compiled_code=compiled_code)
         return_list = []
         for cte, definition in cte_info.items():
             deps = re.findall(
@@ -140,9 +151,10 @@ class DbtColumnMapper:
         final_deps = sqldf(query, locals())
         return final_deps
 
+    # TODO: Break this method into smaller pieces
     def get_cte_columns_source_info(self, model: str) -> pd.DataFrame:
-        sql_query = self.reformat_compiled_code(model=model)
-        cte_info = self.get_cte_definitions(sql_query=sql_query)
+        compiled_code = self.reformat_compiled_model(model=model)
+        cte_info = self.get_cte_definitions_from_compiled_model(compiled_code=compiled_code)
         columns_list = []
         for cte, definition in cte_info.items():
             column_sql = re.findall(r'(?<=select )(.+?)(?= from )', definition, re.IGNORECASE)[0].split(', ')
@@ -273,8 +285,6 @@ class DbtColumnMapper:
         else:
             cte_columns_final = cte_columns_2
 
-        # TODO: Include model's "final" SELECT statement to cte_columns_final
-
         return cte_columns_final
 
 
@@ -287,7 +297,7 @@ def main():
     if model:
         dbt_mapper = DbtColumnMapper()
 
-        reformatted_code = dbt_mapper.reformat_compiled_code(model)
+        reformatted_code = dbt_mapper.reformat_compiled_model(model)
         print("\nReformatted Model:")
         print(reformatted_code)
 
@@ -303,7 +313,7 @@ def main():
         print("\nCTE Dependencies:")
         print(cte_dependencies_df.to_string(index=False, justify='right'))
 
-        cte_def_dict = dbt_mapper.get_cte_definitions(reformatted_code)
+        cte_def_dict = dbt_mapper.get_cte_definitions_from_compiled_model(reformatted_code)
         print("\nCTE Definitions:")
         for cte, definition in cte_def_dict.items():
             print(f"{cte}: {definition}")
@@ -322,7 +332,6 @@ def main():
         # 1.) Get column names of selected model
         # 2.) Get all dependencies of selected model until the ultimate source(s) reached
         # 3.) Get column names of each dependency
-
 
     else:
         print("Please specify the model name using the -s or --select option.")
